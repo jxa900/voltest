@@ -16,14 +16,19 @@ private_key = 'mxckey'
 
 
 def update():
-    run('yum update')
+    run('yum update -y')
+
+def pssh():
+    run('yum install wget -y')
+    run('wget http://apt.sw.be/redhat/el6/en/i386/rpmforge/RPMS/pssh-2.3-1.el6.rf.noarch.rpm')
+    run('rpm -i pssh-2.3-1.el6.rf.noarch.rpm')
+
+    
 
 cl = client.Client(user, password, tenant, auth_url, service_type="compute", insecure=True)
 
-servers = cl.servers.list()
-
+# security group
 sg = ['open']
-ids  = [s.id for s in servers]
 
 for image in cl.images.list():
     if image.name == testing_image:
@@ -45,9 +50,9 @@ for i in range(num_servers):
     hints = dict()
     hints['different_host'] = ids
 
-    cl.servers.create(name, image, flavor, key_name=private_key, scheduler_hints=hints, security_groups=sg)
-
     current_servers = [s.name for s in cl.servers.list() if s.status == u'ACTIVE']
+    if name not in current_servers:
+        cl.servers.create(name, image, flavor, key_name=private_key, scheduler_hints=hints, security_groups=sg)
 
     # not safe due to ERROR state!
     while name not in current_servers:
@@ -69,14 +74,35 @@ if not free_ips:
 head_node_ip = free_ips[0]
 current_servers[0].add_floating_ip(head_node_ip)
 
-sleep(10)
+# TODO replace this with some sort of check to see that the floating IP is responding
+# perhaps open port 22 or something similar
+def check_floating_ip():
+    for ip in cl.floating_ips.list():
+        if ip.ip == head_node_ip.ip and ip.instance_id:
+            return True
+    return False        
 
-print current_servers[0]
+while not check_floating_ip():
+    print "waiting for floating ip"
+    sleep(1)
 
+# push private key out to head node so it can orchestrate
+local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' + private_key + '.private ' + 'root@' + str(head_node_ip.ip) + ':/root' )
+
+# create host list for pssh to use
+with open('.hostlist', 'w+') as hostlist:
+    for server in current_servers:
+        hostlist.write(server.networks['private'][0] + '\n')
+
+local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' +  '.hostlist ' + 'root@' + str(head_node_ip.ip) + ':/root' )
+
+# Fabric environment settings
 env.key_filename = private_key + '.private'
 env.user = 'root'
 env.host_string=str(head_node_ip.ip)
-# update headnode and install pssh
 
+# update headnode and install pssh
 execute(update, hosts=[str(head_node_ip.ip)])
+execute(pssh, hosts=[str(head_node_ip.ip)])
+
 
