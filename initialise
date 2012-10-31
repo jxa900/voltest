@@ -9,4 +9,5 @@ EOF
 
 mkfs.ext3 /dev/vdc1
 mount /dev/vdc1 /media
+chmod ug+x /root/script
 

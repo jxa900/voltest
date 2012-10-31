@@ -15,7 +15,7 @@ password = os.environ.get('OS_PASSWORD')
 
 testing_image = 'centos-6-20120921'
 
-# We could make a new one each run and delete at the end
+# TODO: Could make a new one each run and delete at the end
 private_key = 'mxckey'
 
 def update():
@@ -26,9 +26,15 @@ def pssh():
     run('wget http://apt.sw.be/redhat/el6/en/i386/rpmforge/RPMS/pssh-2.3-1.el6.rf.noarch.rpm')
     run('rpm -i pssh-2.3-1.el6.rf.noarch.rpm')
 
-def runtest():
+def inittest():
     run('pscp -h .hostlist -l root script /root/script')
-    run("pssh -h .hostlist -l root -t 0 -o out -x '-o StrictHostKeyChecking=no' ./script")
+    run('pscp -h .hostlist -l root script /root/initialise')
+    run("pssh -h .hostlist -l root -t 0 -o /tmp -x '-o StrictHostKeyChecking=no' 'chmod ug+x /root/initialise'")
+    run("pssh -h .hostlist -l root -t 0 -o /tmp -x '-o StrictHostKeyChecking=no' ./initialise")
+
+def runtest():
+    run("pssh -h .hostlist -l root -t 0 -o /tmp -x '-o StrictHostKeyChecking=no' ./script")
+
 
 cl = client.Client(user, password, tenant, auth_url, service_type="compute", insecure=True)
 
@@ -100,6 +106,7 @@ with open(expanduser('~') + '/.ssh/known_hosts', 'w') as known_hosts:
         if host.split(' ')[0] != head_node_ip.ip:
             known_hosts.write(host)
 
+sleep(10)
 # push private key out to head node so it can orchestrate
 local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' + private_key + '.private ' + 'root@' + str(head_node_ip.ip) + ':/root' )
 
@@ -119,5 +126,7 @@ env.host_string=str(head_node_ip.ip)
 # update headnode and install pssh
 execute(update, hosts=[str(head_node_ip.ip)])
 execute(pssh, hosts=[str(head_node_ip.ip)])
+execute(runtest, hosts=[str(head_node_ip.ip)])
+execute(inittest, hosts=[str(head_node_ip.ip)])
 
-
+local('scp -i ' + private_key + '.private' + '-r -o StrictHostKeyChecking=no ' +  'root@' + str(head_node_ip.ip) + ':/root/out ' + './results' )
