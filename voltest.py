@@ -14,7 +14,6 @@ testing_image = 'centos-6-20120921'
 # We could make a new one each run and delete at the end
 private_key = 'mxckey'
 
-
 def update():
     run('yum update -y')
 
@@ -23,7 +22,9 @@ def pssh():
     run('wget http://apt.sw.be/redhat/el6/en/i386/rpmforge/RPMS/pssh-2.3-1.el6.rf.noarch.rpm')
     run('rpm -i pssh-2.3-1.el6.rf.noarch.rpm')
 
-    
+def runtest():
+    run('pscp -h .hostlist -l root script /root/script')
+    run("pssh -h .hostlist -l root -t 0 -o out -x '-o StrictHostKeyChecking=no' ./script")
 
 cl = client.Client(user, password, tenant, auth_url, service_type="compute", insecure=True)
 
@@ -95,6 +96,7 @@ with open('.hostlist', 'w+') as hostlist:
         hostlist.write(server.networks['private'][0] + '\n')
 
 local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' +  '.hostlist ' + 'root@' + str(head_node_ip.ip) + ':/root' )
+local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' +  'script ' + 'root@' + str(head_node_ip.ip) + ':/root' )
 
 # Fabric environment settings
 env.key_filename = private_key + '.private'

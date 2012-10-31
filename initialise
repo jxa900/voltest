@@ -1,0 +1,12 @@
+#!/bin/bash
+fdisk /dev/vdc << EOF
+n
+p
+1
+
+w
+EOF
+
+mkfs.ext3 /dev/vdc1
+mount /dev/vdc1 /media
+
