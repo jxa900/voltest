@@ -1,8 +1,12 @@
 from novaclient.v1_1 import client
 from time import sleep
 from fabric.api import execute, env, local, run
+from os.path import expanduser
+
 import os
 import sys
+
+
 
 user = os.environ.get('OS_USERNAME')
 tenant = os.environ.get('OS_TENANT_NAME')
@@ -86,6 +90,15 @@ def check_floating_ip():
 while not check_floating_ip():
     print "waiting for floating ip"
     sleep(1)
+
+# get rid of known hosts entry so Fabric doesn't complain
+with open(expanduser('~') + '/.ssh/known_hosts', 'r') as known_hosts:
+    hosts = known_hosts.readlines()
+
+with open(expanduser('~') + '/.ssh/known_hosts', 'w') as known_hosts:
+    for host in hosts:
+        if host.split(' ')[0] != head_node_ip.ip:
+            known_hosts.write(host)
 
 # push private key out to head node so it can orchestrate
 local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' + private_key + '.private ' + 'root@' + str(head_node_ip.ip) + ':/root' )
