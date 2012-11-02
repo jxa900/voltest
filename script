@@ -1,1 +1,2 @@
+#!/bin/bash
 iozone -a -i 0 -i 1 -i 2 -s 100m -r 2k -r 4k -r 8k -r 16k -r 32k -O -b -t 1 -f /media/test /tmp/results.xls

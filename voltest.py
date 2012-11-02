@@ -13,6 +13,8 @@ auth_url = os.environ.get('OS_AUTH_URL')
 password = os.environ.get('OS_PASSWORD')
 
 testing_image = 'centos-6-20121101'
+volume_size = 5 # GB
+volume_mount_point = '/dev/vdc'
 
 # TODO: Could make a new one each run and delete at the end
 private_key = 'mxckey'
@@ -83,8 +85,27 @@ for i in range(num_servers):
         print "current servers: " + str(current_servers)
         current_servers = [s.name for s in cl.servers.list() if s.status == u'ACTIVE']
 
-# add a public IP to one of the VMs to use as a gateway
 current_servers = [s for s in cl.servers.list() if (s.status == u'ACTIVE' and 'voltest' in s.name)]
+
+# create and attach a volume for each server
+for server in current_servers:
+    cl.volumes.create(volume_size)
+
+# check volume status
+current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
+for volume in current_volumes:
+    while volume.status != 'available':
+        print "waiting for volumes to become available"
+        sleep(1)
+
+# There is a mismatch between the API server version and our client library version
+# we can get around by using Manager's _list function instead of the VolumeManager
+current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
+
+for i, server in enumerate(current_servers):
+    cl.volumes.create_server_volume(server.id, current_volumes[i].id, volume_mount_point)
+
+# add a public IP to one of the VMs to use as a gateway
 floating_pool = cl.floating_ip_pools.list()[0]
 floating_ips = cl.floating_ips.list()
 
