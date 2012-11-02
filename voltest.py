@@ -7,8 +7,6 @@ from socket import socket, AF_INET, SOCK_STREAM
 import os
 import sys
 
-
-
 user = os.environ.get('OS_USERNAME')
 tenant = os.environ.get('OS_TENANT_NAME')
 auth_url = os.environ.get('OS_AUTH_URL')
