@@ -16,8 +16,10 @@ testing_image = 'centos-6-20121101'
 volume_size = 5 # GB
 volume_mount_point = '/dev/vdc'
 
+body = {'volume': {'size': 2, 'snapshot_id': None, 'display_name': None, 'display_description': None, 'volume_type': None, 'availability_zone': None, 'imageRef': None }}
+
 # TODO: Could make a new one each run and delete at the end
-private_key = 'mxckey'
+private_key = 'kuba'
 
 def update():
     run('yum update -y')
@@ -75,7 +77,7 @@ for i in range(num_servers):
     hints = dict()
     hints['different_host'] = ids
 
-    current_servers = [s.name for s in cl.servers.list() if s.status == u'ACTIVE']
+    current_servers = [s.name for s in cl.servers.list() if (s.status == u'ACTIVE' and "voltest" in s.name)]
     if name not in current_servers:
         cl.servers.create(name, image, flavor, key_name=private_key, scheduler_hints=hints, security_groups=sg)
 
@@ -83,27 +85,31 @@ for i in range(num_servers):
     while name not in current_servers:
         sleep(2)
         print "current servers: " + str(current_servers)
-        current_servers = [s.name for s in cl.servers.list() if s.status == u'ACTIVE']
+        current_servers = [s.name for s in cl.servers.list() if (s.status == u'ACTIVE' and "voltest" in s.name)]
 
 current_servers = [s for s in cl.servers.list() if (s.status == u'ACTIVE' and 'voltest' in s.name)]
 
-# create and attach a volume for each server
-for server in current_servers:
-    cl.volumes.create(volume_size)
 
-# check volume status
-current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
-for volume in current_volumes:
-    while volume.status != 'available':
-        print "waiting for volumes to become available"
-        sleep(1)
+## create and attach a volume for each server
+#for server in current_servers:
+##    cl.volumes.create(volume_size)
+#     cl.volumes._create('/os-volumes', body, 'volume')
 
+## check volume status
+#current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
+##current_volumes = [c for c in cl.volumes._list('/os-volumes', body, 'volume')]
+#for volume in current_volumes:
+#    while volume.status != 'available':
+#        print "waiting for volumes to become available"
+#        sleep(1)
+#
 # There is a mismatch between the API server version and our client library version
 # we can get around by using Manager's _list function instead of the VolumeManager
-current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
-
-for i, server in enumerate(current_servers):
-    cl.volumes.create_server_volume(server.id, current_volumes[i].id, volume_mount_point)
+#current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
+#
+#for i, server in enumerate(current_servers):
+#    cl.volumes.create_server_volume(server.id, current_volumes[i].id, volume_mount_point)
+#
 
 # add a public IP to one of the VMs to use as a gateway
 floating_pool = cl.floating_ip_pools.list()[0]
@@ -116,13 +122,13 @@ if not free_ips:
     sys.exit()
      
 head_node_ip = free_ips[0]
-current_servers[0].add_floating_ip(head_node_ip)
+current_servers[-1].add_floating_ip(head_node_ip)
 
 # TODO replace this with some sort of check to see that the floating IP is responding
 # perhaps open port 22 or something similar
 def check_floating_ip():
     for ip in cl.floating_ips.list():
-        if ip.ip == head_node_ip.ip and ip.instance_id == current_servers[0].id:
+        if ip.ip == head_node_ip.ip and ip.instance_id == current_servers[-1].id:
             return True
     return False        
 
@@ -147,6 +153,7 @@ with open(expanduser('~') + '/.ssh/known_hosts', 'w') as known_hosts:
 
 # push private key out to head node so it can orchestrate
 local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' + private_key + '.private ' + 'root@' + str(head_node_ip.ip) + ':/root/.ssh/id_rsa' )
+#local('scp -i ' + '~/.ssh/' + private_key + ' -o StrictHostKeyChecking=no ' + '~/.ssh/' + private_key + ' root@' + str(head_node_ip.ip) + ':/root/.ssh/id_rsa' )
 
 # create host list for pssh to use
 with open('.hostlist', 'w+') as hostlist:
@@ -157,11 +164,16 @@ local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' +  
 local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' +  'script ' + 'root@' + str(head_node_ip.ip) + ':/root' )
 local('scp -i ' + private_key + '.private' + ' -o StrictHostKeyChecking=no ' +  'initialise ' + 'root@' + str(head_node_ip.ip) + ':/root' )
 
+#local('scp -i ' + '~/.ssh/' + private_key + ' -o StrictHostKeyChecking=no ' +  '.hostlist ' + 'root@' + str(head_node_ip.ip) + ':/root' )
+#local('scp -i ' + '~/.ssh/' + private_key + ' -o StrictHostKeyChecking=no ' +  'script ' + 'root@' + str(head_node_ip.ip) + ':/root' )
+#local('scp -i ' + '~/.ssh/' + private_key + ' -o StrictHostKeyChecking=no ' +  'initialise ' + 'root@' + str(head_node_ip.ip) + ':/root' )
+
 # Fabric environment settings
 env.key_filename = private_key + '.private'
+#env.key_filename = private_key
+#env.key_filename = '/home/kuba/.ssh/kuba'
 env.user = 'root'
 env.host_string=str(head_node_ip.ip)
-
 # update headnode and install pssh
 execute(update, hosts=[str(head_node_ip.ip)])
 execute(pssh, hosts=[str(head_node_ip.ip)])
@@ -169,3 +181,5 @@ execute(inittest, hosts=[str(head_node_ip.ip)])
 execute(runtest, hosts=[str(head_node_ip.ip)])
 
 local('scp -i ' + private_key + '.private ' + '-r -o StrictHostKeyChecking=no ' +  'root@' + str(head_node_ip.ip) + ':/root/out ' + './results' )
+local('./parser.sh')
+#local('scp -i ' + '~/.ssh/' + private_key + ' -r -o StrictHostKeyChecking=no ' +  '~/.ssh/' + private_key + ' root@' + str(head_node_ip.ip) + ':/root/out ' + './results' )

@@ -17,9 +17,9 @@ for s in servers:
     if 'voltest' in s.name:
         s.delete()
 
-current_servers = [s.name for s in cl.servers.list() if s.status == u'ACTIVE']
+current_servers = [s.name for s in cl.servers.list() if (s.status == u'ACTIVE' and "voltest" in s.name)]
 
 while current_servers:
     sleep(1)
     print current_servers
-    current_servers = [s.name for s in cl.servers.list() if s.status == u'ACTIVE']
+    current_servers = [s.name for s in cl.servers.list() if (s.status == u'ACTIVE' and "voltest" in s.name)]
