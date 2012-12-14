@@ -12,14 +12,14 @@ tenant = os.environ.get('OS_TENANT_NAME')
 auth_url = os.environ.get('OS_AUTH_URL')
 password = os.environ.get('OS_PASSWORD')
 
-testing_image = 'centos-6-20121101'
+testing_image = 'centos-6-20121214'
 volume_size = 5 # GB
-volume_mount_point = '/dev/vdc'
+volume_mount_point = '/dev/vdd'
 
-body = {'volume': {'size': 2, 'snapshot_id': None, 'display_name': None, 'display_description': None, 'volume_type': None, 'availability_zone': None, 'imageRef': None }}
+body = {'volume': {'size': volume_size, 'snapshot_id': None, 'display_name': None, 'display_description': None, 'volume_type': None, 'availability_zone': None, 'imageRef': None }}
 
 # TODO: Could make a new one each run and delete at the end
-private_key = 'kuba'
+private_key = 'testkey'
 
 def update():
     run('yum update -y')
@@ -55,7 +55,7 @@ def test_port(ip, port, timeout=10):
 cl = client.Client(user, password, tenant, auth_url, service_type="compute", insecure=True)
 
 # security group
-sg = ['open']
+sg = ['default']
 
 for image in cl.images.list():
     if image.name == testing_image:
@@ -65,7 +65,7 @@ for flavor in cl.flavors.list():
     if flavor.name == 'm1.large':
         large = flavor
 
-num_servers = 3
+num_servers = 8
 
 for i in range(num_servers):
     name = "voltest" + str(i)
@@ -91,25 +91,29 @@ current_servers = [s for s in cl.servers.list() if (s.status == u'ACTIVE' and 'v
 
 
 ## create and attach a volume for each server
-#for server in current_servers:
-##    cl.volumes.create(volume_size)
-#     cl.volumes._create('/os-volumes', body, 'volume')
+for server in current_servers:
+     cl.volumes._create('/os-volumes', body, 'volume')
 
-## check volume status
-#current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
-##current_volumes = [c for c in cl.volumes._list('/os-volumes', body, 'volume')]
-#for volume in current_volumes:
-#    while volume.status != 'available':
-#        print "waiting for volumes to become available"
-#        sleep(1)
+def check_volumes():
+    sleep(1)
+    current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
+    for volume in current_volumes:
+        if volume.status != 'available':
+            print "waiting for volumes to become available"
+            sleep(1)
+            check_volumes()
+
+sleep(1)
+check_volumes()
+sleep(1)
+current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
+
+print "attaching volumes"
+for i, server in enumerate(current_servers):
+    #cl.volumes.create_server_volume(server.id, current_volumes[i].id, volume_mount_point)
+    local('nova volume-attach %s %s %s' % (server.id, current_volumes[i].id, volume_mount_point) )
 #
-# There is a mismatch between the API server version and our client library version
-# we can get around by using Manager's _list function instead of the VolumeManager
-#current_volumes = [c for c in cl.volumes._list('/os-volumes', 'volumes')]
-#
-#for i, server in enumerate(current_servers):
-#    cl.volumes.create_server_volume(server.id, current_volumes[i].id, volume_mount_point)
-#
+print "volumes attached!"
 
 # add a public IP to one of the VMs to use as a gateway
 floating_pool = cl.floating_ip_pools.list()[0]

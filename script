@@ -1,3 +1,3 @@
 #!/bin/bash
-iozone -a -i 0 -i 1 -i 2 -s 10m -r 2k -r 4k -r 8k -r 16k -r 32k -O -I -b -t 1 -f /media/test /tmp/results.xls
+iozone -a -i 0 -i 1 -i 2 -s 500m -r 2k -r 4k -r 8k -r 16k -r 32k -O -I -b -t 1 -f /media/test /tmp/results.xls
 iozone -t 4 -F /media/test1 /media/test2 /media/test3 /media/test4 -I -b /tmp/results-thru.xls

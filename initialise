@@ -1,5 +1,5 @@
 #!/bin/bash
-fdisk /dev/vdc << EOF
+fdisk /dev/vdd << EOF
 n
 p
 1
@@ -7,8 +7,8 @@ p
 w
 EOF
 
-mkfs.ext3 /dev/vdc1
-mount /dev/vdc1 /media
+mkfs.ext3 /dev/vdd1
+mount /dev/vdd1 /media
 chmod ug+x /root/script
 yum update -y
 rpm -i iozone-3.394-1.el6.rf.x86_64.rpm
